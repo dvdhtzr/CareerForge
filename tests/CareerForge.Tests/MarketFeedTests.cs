@@ -25,7 +25,7 @@ public sealed class MarketFeedTests
         var urls = new List<string>();
         var feed = new HimalayasJobFeed(new HttpClient(new Handler(request =>
         {
-            urls.Add(request.RequestUri!.ToString());
+            urls.Add(request.RequestUri!.AbsoluteUri);
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent("""
@@ -60,7 +60,7 @@ public sealed class MarketFeedTests
         var feed = new JobicyJobFeed(new HttpClient(new Handler(request =>
         {
             Assert.Null(request.Headers.Authorization);
-            urls.Add(request.RequestUri!.ToString());
+            urls.Add(request.RequestUri!.AbsoluteUri);
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent("""
