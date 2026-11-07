@@ -5,19 +5,28 @@ using CareerForge.Core;
 
 namespace CareerForge.Infrastructure;
 
-public sealed class GreenhouseJobClient(HttpClient httpClient) : IJobFeedClient
+public sealed class GreenhouseJobClient(HttpClient httpClient) : IDescribedJobFeedClient
 {
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
-    public async Task<IReadOnlyList<CollectedJob>> GetJobsAsync(
-        string boardToken, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<CollectedJob>> GetJobsAsync(
+        string boardToken, CancellationToken cancellationToken = default) =>
+        GetInternalAsync(boardToken, includeDescriptions: false, cancellationToken);
+
+    public Task<IReadOnlyList<CollectedJob>> GetJobsWithDescriptionsAsync(
+        string boardToken, CancellationToken cancellationToken = default) =>
+        GetInternalAsync(boardToken, includeDescriptions: true, cancellationToken);
+
+    private async Task<IReadOnlyList<CollectedJob>> GetInternalAsync(
+        string boardToken, bool includeDescriptions, CancellationToken cancellationToken)
     {
         if (!JobNormalizer.IsValidBoardToken(boardToken))
             throw new ArgumentException("Invalid Greenhouse board token.", nameof(boardToken));
 
         // Fixed provider hostname; a user-controlled URL is never fetched.
         using var response = await httpClient.GetAsync(
-            $"https://boards-api.greenhouse.io/v1/boards/{boardToken}/jobs",
+            $"https://boards-api.greenhouse.io/v1/boards/{boardToken}/jobs" +
+            (includeDescriptions ? "?content=true" : ""),
             HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
 
@@ -42,7 +51,8 @@ public sealed class GreenhouseJobClient(HttpClient httpClient) : IJobFeedClient
             job.Location?.Name,
             job.AbsoluteUrl ?? "",
             DateTimeOffset.TryParse(job.UpdatedAt, CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal, out var updated) ? updated.ToUniversalTime() : null
+                DateTimeStyles.AssumeUniversal, out var updated) ? updated.ToUniversalTime() : null,
+            includeDescriptions ? job.Content : null
         )).ToArray();
     }
 
@@ -64,6 +74,8 @@ public sealed class GreenhouseJobClient(HttpClient httpClient) : IJobFeedClient
         public string? AbsoluteUrl { get; set; }
         [JsonPropertyName("updated_at")]
         public string? UpdatedAt { get; set; }
+        [JsonPropertyName("content")]
+        public string? Content { get; set; }
     }
 
     private sealed class GreenhouseLocation

@@ -21,11 +21,16 @@ if (args.Length > 0 && args[0] == "profile")
 if (args.Length > 0 && args[0] == "evaluate")
     return await EvaluateAsync(args[1..]);
 
+if (args.Length > 0 && args[0] == "requirements")
+    return await RequirementReviewCommand.RunAsync(args[1..], host.Services);
+
+bool withDescriptions = args.Length > 1 &&
+    args[0] == "scan" && args[1] == "--with-descriptions";
 string[] boards = args.Length == 0 ? ["greenhouse"] :
-    args[0] == "scan" ? args[1..] : args;
+    args[0] == "scan" ? args[(withDescriptions ? 2 : 1)..] : args;
 if (boards.Length == 0 || boards.Any(board => !JobNormalizer.IsValidBoardToken(board)))
 {
-    Console.Error.WriteLine("Usage: scan <greenhouse-board-token> [...]");
+    Console.Error.WriteLine("Usage: scan [--with-descriptions] <greenhouse-board-token> [...]");
     return 2;
 }
 
@@ -33,7 +38,7 @@ var scanner = host.Services.GetRequiredService<JobScanService>();
 var failures = 0;
 foreach (var board in boards.Distinct(StringComparer.OrdinalIgnoreCase))
 {
-    var result = await scanner.ScanBoardAsync(board);
+    var result = await scanner.ScanBoardAsync(board, includeDescriptions: withDescriptions);
     Console.WriteLine($"{board}: {result.Status} | found={result.Found} " +
         $"added={result.Added} refreshed={result.Updated} skipped={result.Skipped}");
     if (result.Status != "Succeeded")
@@ -143,7 +148,7 @@ async Task<int> EvaluateAsync(string[] options)
 
     await using var db = await host.Services
         .GetRequiredService<IDbContextFactory<CareerForgeDbContext>>().CreateDbContextAsync();
-    await db.Database.EnsureCreatedAsync();
+    await JobDatabaseSchema.EnsureReadyAsync(db);
     var jobs = await db.Jobs.AsNoTracking().OrderByDescending(j => j.LastSeenAtUtc)
         .Take(500).ToListAsync();
     var candidates = jobs

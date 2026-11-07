@@ -8,6 +8,7 @@ public sealed class CareerForgeDbContext(DbContextOptions<CareerForgeDbContext> 
 {
     public DbSet<JobPosting> Jobs => Set<JobPosting>();
     public DbSet<JobScan> Scans => Set<JobScan>();
+    public DbSet<JobDescription> JobDescriptions => Set<JobDescription>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -27,6 +28,13 @@ public sealed class CareerForgeDbContext(DbContextOptions<CareerForgeDbContext> 
         jobs.Property(x => x.Title).HasMaxLength(300).IsRequired();
         jobs.Property(x => x.Location).HasMaxLength(200).IsRequired();
         jobs.Property(x => x.JobUrl).HasMaxLength(2048).IsRequired();
+
+        var description = builder.Entity<JobDescription>();
+        description.HasKey(x => x.JobId);
+        description.Property(x => x.Text).IsRequired();
+        description.Property(x => x.Sha256).HasMaxLength(64).IsRequired();
+        description.Property(x => x.SourceUrl).HasMaxLength(2048).IsRequired();
+        description.Property(x => x.RetrievedAtUtc).HasConversion(utc);
 
         var scans = builder.Entity<JobScan>();
         scans.HasKey(x => x.Id);

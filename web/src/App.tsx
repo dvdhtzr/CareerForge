@@ -8,6 +8,7 @@ type Job = {
   jobUrl: string
   firstSeenAtUtc: string
   lastSeenAtUtc: string
+  hasDescription: boolean
 }
 
 type Evaluation = {
@@ -18,6 +19,15 @@ type Evaluation = {
   uncertainty: string
   evidenceLevel: string
   evaluatedAtUtc: string
+}
+
+type RequirementReview = {
+  jobId: string
+  model: string
+  evidenceLevel: string
+  evaluatedAtUtc: string
+  listedSkillCount: number
+  claims: { quote: string; profileSkill: string | null }[]
 }
 
 type ProfileStatus = { configured: boolean }
@@ -39,6 +49,7 @@ const fmt = (value: string) => new Date(value).toLocaleString()
 export default function App() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
+  const [requirementReviews, setRequirementReviews] = useState<RequirementReview[]>([])
   const [profileConfigured, setProfileConfigured] = useState(false)
   const [scans, setScans] = useState<Scan[]>([])
   const [query, setQuery] = useState('')
@@ -48,17 +59,18 @@ export default function App() {
   async function reload() {
     setLoading(true)
     try {
-      const [jobsResponse, scansResponse, evaluationsResponse, profileResponse] = await Promise.all([
+      const [jobsResponse, scansResponse, evaluationsResponse, profileResponse, reviewsResponse] = await Promise.all([
         fetch('/api/jobs?limit=500'), fetch('/api/scans'), fetch('/api/evaluations'),
-        fetch('/api/profile/status'),
+        fetch('/api/profile/status'), fetch('/api/requirement-reviews'),
       ])
-      if (!jobsResponse.ok || !scansResponse.ok || !evaluationsResponse.ok || !profileResponse.ok)
+      if (!jobsResponse.ok || !scansResponse.ok || !evaluationsResponse.ok || !profileResponse.ok || !reviewsResponse.ok)
         throw new Error('API request failed')
-      const [jobData, scanData, evaluationData, profileData]: [Job[], Scan[], Evaluation[], ProfileStatus] =
-        await Promise.all([jobsResponse.json(), scansResponse.json(), evaluationsResponse.json(), profileResponse.json()])
+      const [jobData, scanData, evaluationData, profileData, reviewData]: [Job[], Scan[], Evaluation[], ProfileStatus, RequirementReview[]] =
+        await Promise.all([jobsResponse.json(), scansResponse.json(), evaluationsResponse.json(), profileResponse.json(), reviewsResponse.json()])
       setJobs(jobData)
       setScans(scanData)
       setEvaluations(evaluationData)
+      setRequirementReviews(reviewData)
       setProfileConfigured(profileData.configured)
       setError(null)
     } catch {
@@ -74,6 +86,7 @@ export default function App() {
   ), [jobs, query])
   const lastScan = scans[0]
   const evaluationByJob = useMemo(() => new Map(evaluations.map(e => [e.jobId, e])), [evaluations])
+  const requirementsByJob = useMemo(() => new Map(requirementReviews.map(r => [r.jobId, r])), [requirementReviews])
 
   return (
     <div className="app-shell">
@@ -104,12 +117,13 @@ export default function App() {
           <div className="metric"><span>KNOWN POSTINGS</span><strong>{jobs.length}</strong><small>Up to 500 shown</small></div>
           <div className="metric"><span>SCAN RUNS</span><strong>{scans.length}</strong><small>Last 30 recorded</small></div>
           <div className="metric"><span>LATEST SCAN</span><strong className="status-text">{lastScan?.status ?? 'Not run'}</strong><small>{lastScan ? fmt(lastScan.startedAtUtc) : 'Run the worker first'}</small></div>
-          <div className="metric"><span>LOCAL AI REVIEWS</span><strong>{evaluations.length}</strong><small>Preliminary metadata-only matches</small></div>
+          <div className="metric"><span>QUOTED REQUIREMENT REVIEWS</span><strong>{requirementReviews.length}</strong><small>Validated against local source text</small></div>
         </div>
         <div className="evidence-notice" role="note">
           <b>{profileConfigured ? 'Private profile configured' : 'Private profile not configured'}</b>
-          {' · '}AI assessments consider titles and locations only, not qualifications, salary, or job descriptions.
-          {profileConfigured ? ' Run the evaluate CLI to generate assessments.' : ' Run the profile init CLI first.'}
+          {' · '}Title-fit reviews consider metadata only. Requirement reviews quote actual employer descriptions,
+          but listed skills are self-reported rather than verified experience.
+          {profileConfigured ? ' Use the requirements CLI to add evidence reviews.' : ' Run profile init first.'}
         </div>
         <section className="panel">
           <div className="panel-header">
@@ -119,7 +133,7 @@ export default function App() {
               onChange={e => setQuery(e.target.value)} />
           </div>
           <div className="table-scroller">
-            <table><thead><tr><th>ROLE</th><th>BOARD</th><th>LOCATION</th><th>LAST OBSERVED</th><th>AI TITLE FIT</th><th /></tr></thead>
+            <table><thead><tr><th>ROLE</th><th>BOARD</th><th>LOCATION</th><th>LAST OBSERVED</th><th>AI TITLE FIT</th><th>REQUIREMENTS</th><th /></tr></thead>
               <tbody>{filtered.map(job => <tr key={job.id}>
                 <td className="job-title">{job.title}</td><td>{job.boardToken}</td>
                 <td>{job.location}</td><td>{fmt(job.lastSeenAtUtc)}</td>
@@ -131,6 +145,20 @@ export default function App() {
                     <small>{evaluationByJob.get(job.id)!.model} · metadata only</small>
                   </details>
                 ) : <span className="pending-fit">Not evaluated</span>}</td>
+                <td>{requirementsByJob.has(job.id) ? (
+                  <details className="fit-details">
+                    <summary className="fit-pill">
+                      {requirementsByJob.get(job.id)!.listedSkillCount} listed-skill mentions
+                    </summary>
+                    {requirementsByJob.get(job.id)!.claims.map((claim, index) => (
+                      <p className="requirement-claim" key={index}>
+                        <q>{claim.quote}</q>
+                        <small>{claim.profileSkill ? 'Profile lists: ' + claim.profileSkill : 'Unverified — not a proven gap'}</small>
+                      </p>
+                    ))}
+                    <small>{requirementsByJob.get(job.id)!.model} · exact quotes · source checked</small>
+                  </details>
+                ) : <span className="pending-fit">{job.hasDescription ? 'Description collected' : 'No description'}</span>}</td>
                 <td><a href={job.jobUrl} target="_blank" rel="noopener noreferrer">View ↗</a></td>
               </tr>)}</tbody></table>
             {!loading && filtered.length === 0 && <div className="empty">No postings in this view. Run a scan or change the filter.</div>}
@@ -146,7 +174,7 @@ export default function App() {
               {scan.error && <div className="scan-error">{scan.error}</div>}
             </div>)}</div>}
         </section>
-        <footer>CareerForge v0.2 · Profile and AI results stay local · Preliminary AI judgments are not hiring requirements · Missing from a scan does not prove closure.</footer>
+        <footer>CareerForge v0.3 · Private profile · Local description quotes · Unverified is not a gap · Always review the original job posting.</footer>
       </main>
     </div>
   )
