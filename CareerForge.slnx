@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/CareerForge.Core/CareerForge.Core.csproj" />
+  <Project Path="src/CareerForge.Infrastructure/CareerForge.Infrastructure.csproj" />
+  <Project Path="src/CareerForge.Api/CareerForge.Api.csproj" />
+  <Project Path="src/CareerForge.Worker/CareerForge.Worker.csproj" />
+  <Project Path="tests/CareerForge.Tests/CareerForge.Tests.csproj" />
+</Solution>
