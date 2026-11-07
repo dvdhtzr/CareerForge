@@ -24,7 +24,7 @@ public sealed class JobScanServiceTests
         Assert.Equal(0, second.Added);
         Assert.Equal(1, second.Updated);
 
-        await using var db = await factory.CreateDbContextAsync();
+        await using var db = factory.CreateDbContext();
         Assert.Equal(1, await db.Jobs.CountAsync());
         Assert.Equal(2, await db.Scans.CountAsync());
         Assert.Equal("Senior .NET Engineer", (await db.Jobs.SingleAsync()).Title);
@@ -40,7 +40,7 @@ public sealed class JobScanServiceTests
         var scan = await new JobScanService(factory, new StubFeed(true), TimeProvider.System)
             .ScanBoardAsync("example");
         Assert.Equal("Failed", scan.Status);
-        await using var db = await factory.CreateDbContextAsync();
+        await using var db = factory.CreateDbContext();
         Assert.Empty(await db.Jobs.ToListAsync());
         Assert.Single(await db.Scans.ToListAsync());
     }
