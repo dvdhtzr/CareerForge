@@ -36,7 +36,8 @@ app.MapGet("/api/jobs", async (IDbContextFactory<CareerForgeDbContext> factory,
         {
             job.Id, job.Provider, job.BoardToken, job.ExternalId, job.Title,
             job.Location, job.JobUrl, job.SourceUpdatedAtUtc,
-            job.FirstSeenAtUtc, job.LastSeenAtUtc
+            job.FirstSeenAtUtc, job.LastSeenAtUtc,
+            HasDescription = db.JobDescriptions.Any(d => d.JobId == job.Id)
         })
         .ToListAsync(cancellationToken);
     return Results.Ok(rows);
@@ -72,5 +73,32 @@ app.MapGet("/api/evaluations", async Task<IResult> (CancellationToken cancellati
     return Results.Ok(current);
 });
 
-// Both new endpoints are read-only and intended for loopback use only.
+// Return only short, validated requirement quotes. Never expose the full stored text.
+app.MapGet("/api/requirement-reviews", async Task<IResult> (
+    IDbContextFactory<CareerForgeDbContext> factory, CancellationToken cancellationToken) =>
+{
+    var profile = await new PrivateProfileStore().LoadAsync(cancellationToken);
+    if (profile is null) return Results.Ok(Array.Empty<object>());
+    await using var db = await factory.CreateDbContextAsync(cancellationToken);
+    var currentHashes = (await db.JobDescriptions.AsNoTracking()
+        .Select(d => new { d.JobId, d.Sha256 }).ToListAsync(cancellationToken))
+        .ToDictionary(d => d.JobId, d => d.Sha256);
+    var results = await new LocalRequirementStore().ReadAsync(cancellationToken);
+    var current = results
+        .Where(r => r.ProfileFingerprint == profile.Fingerprint() &&
+            currentHashes.TryGetValue(r.JobId, out var hash) && hash == r.DescriptionHash)
+        .OrderByDescending(r => r.EvaluatedAtUtc)
+        .GroupBy(r => r.JobId)
+        .Select(g => g.First())
+        .Take(500)
+        .Select(r => new
+        {
+            r.JobId, r.Model, r.EvidenceLevel, r.EvaluatedAtUtc,
+            Claims = r.Claims.Select(c => new { c.Quote, c.ProfileSkill }).ToArray(),
+            ListedSkillCount = r.Claims.Count(c => c.ProfileSkill is not null)
+        }).ToArray();
+    return Results.Ok(current);
+});
+
+// All endpoints are read-only and intended for loopback use only.
 app.Run();

@@ -109,3 +109,25 @@ are not yet known; do not use these assessments as proof of suitability. Ollama 
 loopback and will not send personal data to cloud inference providers.
 
 See [Phase 2 design and limitations](docs/phase2.md).
+
+## Phase 3 — quoted requirements from actual job descriptions
+
+Greenhouse supports a documented public `?content=true` parameter. Descriptions are **opt-in**
+per board, never fetched during the default metadata-only scans. Only process boards whose
+published usage terms and your intended local research use permit it.
+
+~~~powershell
+dotnet run --project .\src\CareerForge.Worker -- scan --with-descriptions greenhouse
+dotnet run --project .\src\CareerForge.Worker -- requirements --model qwen3.5:9b --limit 3
+~~~
+
+The first command stores bounded, plain-text descriptions locally in SQLite along with source
+URLs, timestamps and SHA-256 hashes. It upgrades existing databases without deleting past
+jobs. The second asks local Ollama for **exact requirement quotes**; deterministic verification
+rejects made-up quotes and unsupported profile-skill matches before anything is saved.
+
+The dashboard shows the cited text and which skills are **listed in your profile**, not
+necessarily proven by a resume. Missing skills are marked unverified, not gaps. Models cannot
+certify your qualifications. No automatic applications or external inference are involved.
+
+See [PR3 acceptance and limitations](docs/pr3-acceptance.md).

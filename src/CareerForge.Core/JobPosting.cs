@@ -34,7 +34,8 @@ public sealed record CollectedJob(
     string Title,
     string? Location,
     string JobUrl,
-    DateTimeOffset? SourceUpdatedAtUtc);
+    DateTimeOffset? SourceUpdatedAtUtc,
+    string? DescriptionHtml = null);
 
 public sealed record NormalizedJob(
     string ExternalId,
@@ -46,4 +47,11 @@ public sealed record NormalizedJob(
 public interface IJobFeedClient
 {
     Task<IReadOnlyList<CollectedJob>> GetJobsAsync(string boardToken, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Opt-in full descriptions from a reviewed public provider endpoint.</summary>
+public interface IDescribedJobFeedClient : IJobFeedClient
+{
+    Task<IReadOnlyList<CollectedJob>> GetJobsWithDescriptionsAsync(
+        string boardToken, CancellationToken cancellationToken = default);
 }

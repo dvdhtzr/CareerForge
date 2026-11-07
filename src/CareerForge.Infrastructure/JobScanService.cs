@@ -8,20 +8,26 @@ public sealed class JobScanService(
     IJobFeedClient feedClient,
     TimeProvider clock)
 {
-    public async Task<JobScan> ScanBoardAsync(string boardToken, CancellationToken cancellationToken = default)
+    public async Task<JobScan> ScanBoardAsync(
+        string boardToken, bool includeDescriptions = false, CancellationToken cancellationToken = default)
     {
         if (!JobNormalizer.IsValidBoardToken(boardToken))
             throw new ArgumentException("Invalid Greenhouse board token.", nameof(boardToken));
 
         // One worker process, sequential boards. Distributed locking is deferred.
         await using var db = await databaseFactory.CreateDbContextAsync(cancellationToken);
-        await db.Database.EnsureCreatedAsync(cancellationToken);
+        await JobDatabaseSchema.EnsureReadyAsync(db, cancellationToken);
         var scan = new JobScan { BoardToken = boardToken, StartedAtUtc = clock.GetUtcNow().UtcDateTime };
         try
         {
-            var jobs = await feedClient.GetJobsAsync(boardToken, cancellationToken);
+            var jobs = includeDescriptions
+                ? await (feedClient as IDescribedJobFeedClient
+                    ?? throw new InvalidOperationException("Provider lacks a reviewed description interface."))
+                    .GetJobsWithDescriptionsAsync(boardToken, cancellationToken)
+                : await feedClient.GetJobsAsync(boardToken, cancellationToken);
             scan.Found = jobs.Count;
             var unique = new Dictionary<string, NormalizedJob>(StringComparer.Ordinal);
+            var descriptionTexts = new Dictionary<string, string?>(StringComparer.Ordinal);
             foreach (var job in jobs)
             {
                 if (!JobNormalizer.TryNormalize(job, out var normalized) || normalized is null)
@@ -29,6 +35,9 @@ public sealed class JobScanService(
                     scan.Skipped++;
                     continue;
                 }
+                if (includeDescriptions)
+                    descriptionTexts[normalized.ExternalId] = JobDescriptionText.Extract(job.DescriptionHtml);
+
                 // If a source repeats an id in one response, keep its final entry.
                 if (!unique.TryAdd(normalized.ExternalId, normalized))
                 {
@@ -41,8 +50,18 @@ public sealed class JobScanService(
                 .Where(x => x.Provider == "greenhouse" && x.BoardToken == boardToken)
                 .ToListAsync(cancellationToken)).ToDictionary(x => x.ExternalId, StringComparer.Ordinal);
             var now = clock.GetUtcNow().UtcDateTime;
+            // Only load description rows if this scan explicitly opted in.
+            var storedDescriptions = new Dictionary<Guid, JobDescription>();
+            if (includeDescriptions)
+            {
+                var ids = existing.Values.Select(x => x.Id).ToArray();
+                storedDescriptions = (await db.JobDescriptions.Where(x => ids.Contains(x.JobId))
+                    .ToListAsync(cancellationToken)).ToDictionary(x => x.JobId);
+            }
+
             foreach (var candidate in unique.Values)
             {
+                JobPosting posting;
                 if (existing.TryGetValue(candidate.ExternalId, out var current))
                 {
                     current.Title = candidate.Title;
@@ -51,10 +70,11 @@ public sealed class JobScanService(
                     current.SourceUpdatedAtUtc = candidate.SourceUpdatedAtUtc?.UtcDateTime;
                     current.LastSeenAtUtc = now;
                     scan.Updated++;
+                    posting = current;
                 }
                 else
                 {
-                    db.Jobs.Add(new JobPosting
+                    posting = new JobPosting
                     {
                         BoardToken = boardToken,
                         ExternalId = candidate.ExternalId,
@@ -64,8 +84,38 @@ public sealed class JobScanService(
                         SourceUpdatedAtUtc = candidate.SourceUpdatedAtUtc?.UtcDateTime,
                         FirstSeenAtUtc = now,
                         LastSeenAtUtc = now
-                    });
+                    };
+                    db.Jobs.Add(posting);
                     scan.Added++;
+                }
+
+                if (includeDescriptions)
+                {
+                    var text = descriptionTexts[candidate.ExternalId];
+                    if (text is null)
+                    {
+                        if (storedDescriptions.TryGetValue(posting.Id, out var prior))
+                            db.JobDescriptions.Remove(prior);
+                    }
+                    else
+                    {
+                        var hash = JobDescriptionText.Sha256(text);
+                        if (!storedDescriptions.TryGetValue(posting.Id, out var saved))
+                        {
+                            db.JobDescriptions.Add(new JobDescription
+                            {
+                                JobId = posting.Id, Text = text, Sha256 = hash,
+                                SourceUrl = candidate.JobUrl, RetrievedAtUtc = now
+                            });
+                        }
+                        else if (saved.Sha256 != hash || saved.SourceUrl != candidate.JobUrl)
+                        {
+                            saved.Text = text;
+                            saved.Sha256 = hash;
+                            saved.SourceUrl = candidate.JobUrl;
+                            saved.RetrievedAtUtc = now;
+                        }
+                    }
                 }
             }
             scan.Status = "Succeeded";
