@@ -41,3 +41,21 @@ concurrent scans and respect rate limits. The database does not store job descri
 - Found: total provider entries; Skipped: invalid or duplicate IDs in that response.
 - Added: newly observed posting identities; Updated: identities already known and refreshed.
 - No inference of job closure is made from a missing row in later snapshots.
+
+## Phase 2 enrichment (local-only)
+
+~~~text
+Interactive CLI profile init -> LocalApplicationData/profile.json (private)
+                                       |
+SQLite normalized job metadata -> deterministic triage
+                                       |
+                               Ollama /api/chat on 127.0.0.1
+                              (JSON-schema metadata-only fit)
+                                       |
+                           LocalApplicationData/assessments.json
+                                       |
+                          Read-only API -> React fit details
+~~~
+
+This is preliminary title/location alignment, not requirements-grounded matching.
+An explicit evidence-grade field prevents presenting it as validated suitability.

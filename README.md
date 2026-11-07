@@ -82,3 +82,30 @@ You can also run dotnet test CareerForge.slnx and cd web; npm run build independ
   matching, the second brain, and Ollama evaluation belong to the next milestone.
 
 See docs/architecture.md and AGENTS.md.
+
+## Phase 2 — private profile and local Ollama title triage
+
+Create a profile through the terminal's guided prompts; **no JSON file editing is required**:
+
+~~~powershell
+dotnet run --project .\\src\\CareerForge.Worker -- profile init
+~~~
+
+The profile is written outside your Git checkout to `%LOCALAPPDATA%\\CareerForge\\profile.json`.
+To review it, run `dotnet run --project .\\src\\CareerForge.Worker -- profile show`.
+Do not publish or share your profile/assessments JSON files.
+
+After a normal Greenhouse scan and with local Ollama running:
+
+~~~powershell
+ollama pull qwen3.5:9b
+dotnet run --project .\\src\\CareerForge.Worker -- evaluate --model qwen3.5:9b --limit 5
+~~~
+
+Refresh the React dashboard to see title alignment assessments and uncertainty statements.
+The HTTP API exposes `GET /api/profile/status` and `GET /api/evaluations`, both read-only.
+**Model scores are based on role title/location only.** Requirements, salary and qualification fit
+are not yet known; do not use these assessments as proof of suitability. Ollama stays on local
+loopback and will not send personal data to cloud inference providers.
+
+See [Phase 2 design and limitations](docs/phase2.md).
