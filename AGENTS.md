@@ -26,3 +26,13 @@
 - All generated quotes must be literal portions of the stored description. Fabricated quotes or unsupported profile-skill matches invalidate the result.
 - Unmentioned profile skills mean **not verified**, never a demonstrated deficiency. Never infer eligibility, experience years, or salary fit.
 - Present quote text only in React, never untrusted HTML. Live local Ollama verification remains a user-side acceptance gate.
+
+## PR4: user-controlled employer watchlist and local morning briefing
+
+- Do not seed employer lists, personal job preferences or reports into the public Git repository.
+- Board tokens are validated; only a fixed, reviewed provider hostname may be contacted.
+- A board is enabled explicitly by the user. Description retrieval remains off by default for every board.
+- Each enabled board is scanned sequentially; provider failures appear in CLI output and the morning briefing, never silently ignored.
+- Report 'new' means first observed within the requested window, not necessarily posted or still open.
+- Daily does not call a paid or local LLM, does not create tasks, and does not submit applications.
+- No Windows Scheduled Task is installed automatically; scheduling requires separate user opt-in.

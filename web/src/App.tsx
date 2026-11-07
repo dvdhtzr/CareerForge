@@ -30,6 +30,43 @@ type RequirementReview = {
   claims: { quote: string; profileSkill: string | null }[]
 }
 
+type BriefingSource = {
+  boardToken: string
+  displayName: string
+  enabled: boolean
+  includeDescriptions: boolean
+  lastStatus: string
+  lastAttemptUtc: string | null
+  lastAdded: number | null
+  lastError: string | null
+}
+
+type BriefingJob = {
+  id: string
+  boardToken: string
+  title: string
+  location: string
+  jobUrl: string
+  firstSeenAtUtc: string
+  lastSeenAtUtc: string
+  triage: string
+  reasonCodes: string[]
+}
+
+type Briefing = {
+  generatedAtUtc: string
+  windowDays: number
+  profileConfigured: boolean
+  recentCount: number
+  candidateCount: number
+  reviewCount: number
+  excludedCount: number
+  unclassifiedCount: number
+  omittedCount: number
+  jobs: BriefingJob[]
+  sources: BriefingSource[]
+}
+
 type ProfileStatus = { configured: boolean }
 
 type Scan = {
@@ -52,6 +89,7 @@ export default function App() {
   const [requirementReviews, setRequirementReviews] = useState<RequirementReview[]>([])
   const [profileConfigured, setProfileConfigured] = useState(false)
   const [scans, setScans] = useState<Scan[]>([])
+  const [briefing, setBriefing] = useState<Briefing | null>(null)
   const [query, setQuery] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -59,18 +97,20 @@ export default function App() {
   async function reload() {
     setLoading(true)
     try {
-      const [jobsResponse, scansResponse, evaluationsResponse, profileResponse, reviewsResponse] = await Promise.all([
+      const [jobsResponse, scansResponse, evaluationsResponse, profileResponse, reviewsResponse, briefingResponse] = await Promise.all([
         fetch('/api/jobs?limit=500'), fetch('/api/scans'), fetch('/api/evaluations'),
         fetch('/api/profile/status'), fetch('/api/requirement-reviews'),
+        fetch('/api/briefing?days=7'),
       ])
-      if (!jobsResponse.ok || !scansResponse.ok || !evaluationsResponse.ok || !profileResponse.ok || !reviewsResponse.ok)
+      if (!jobsResponse.ok || !scansResponse.ok || !evaluationsResponse.ok || !profileResponse.ok || !reviewsResponse.ok || !briefingResponse.ok)
         throw new Error('API request failed')
-      const [jobData, scanData, evaluationData, profileData, reviewData]: [Job[], Scan[], Evaluation[], ProfileStatus, RequirementReview[]] =
-        await Promise.all([jobsResponse.json(), scansResponse.json(), evaluationsResponse.json(), profileResponse.json(), reviewsResponse.json()])
+      const [jobData, scanData, evaluationData, profileData, reviewData, briefingData]: [Job[], Scan[], Evaluation[], ProfileStatus, RequirementReview[], Briefing] =
+        await Promise.all([jobsResponse.json(), scansResponse.json(), evaluationsResponse.json(), profileResponse.json(), reviewsResponse.json(), briefingResponse.json()])
       setJobs(jobData)
       setScans(scanData)
       setEvaluations(evaluationData)
       setRequirementReviews(reviewData)
+      setBriefing(briefingData)
       setProfileConfigured(profileData.configured)
       setError(null)
     } catch {
@@ -115,9 +155,9 @@ export default function App() {
         {error && <div className="error" role="alert">{error}</div>}
         <div className="stats">
           <div className="metric"><span>KNOWN POSTINGS</span><strong>{jobs.length}</strong><small>Up to 500 shown</small></div>
-          <div className="metric"><span>SCAN RUNS</span><strong>{scans.length}</strong><small>Last 30 recorded</small></div>
+          <div className="metric"><span>WATCHED EMPLOYERS</span><strong>{briefing?.sources.filter(s => s.enabled).length ?? '—'}</strong><small>Locally configured boards</small></div>
           <div className="metric"><span>LATEST SCAN</span><strong className="status-text">{lastScan?.status ?? 'Not run'}</strong><small>{lastScan ? fmt(lastScan.startedAtUtc) : 'Run the worker first'}</small></div>
-          <div className="metric"><span>QUOTED REQUIREMENT REVIEWS</span><strong>{requirementReviews.length}</strong><small>Validated against local source text</small></div>
+          <div className="metric"><span>FIRST OBSERVED (7D)</span><strong>{briefing?.recentCount ?? '—'}</strong><small>{briefing ? briefing.candidateCount + ' candidates · ' + briefing.reviewCount + ' review' : 'Waiting for report'}</small></div>
         </div>
         <div className="evidence-notice" role="note">
           <b>{profileConfigured ? 'Private profile configured' : 'Private profile not configured'}</b>
@@ -125,6 +165,43 @@ export default function App() {
           but listed skills are self-reported rather than verified experience.
           {profileConfigured ? ' Use the requirements CLI to add evidence reviews.' : ' Run profile init first.'}
         </div>
+        <section className="panel">
+          <div className="panel-header">
+            <div><h2>Morning briefing</h2><p>First observed in the last 7 days — not necessarily newly posted or currently open.</p></div>
+          </div>
+          <div className="briefing-columns">
+            <div>
+              <h3>Employer watchlist</h3>
+              {!briefing || briefing.sources.length === 0 ?
+                <p className="briefing-empty">No employers configured. Use the local CLI: sources add &lt;board-token&gt;.</p> :
+                <div className="briefing-source-list">
+                  {briefing.sources.map(source => <div className="briefing-source" key={source.boardToken}>
+                    <div><b>{source.displayName}</b><small>{source.boardToken}{source.includeDescriptions ? ' · descriptions opted in' : ' · metadata only'}</small></div>
+                    <div>
+                      <span className={source.lastStatus === 'Succeeded' ? 'pill good' :
+                        source.lastStatus === 'Failed' ? 'pill bad' : 'pill'}>{source.lastStatus}</span>
+                      <small>{source.lastAttemptUtc ? fmt(source.lastAttemptUtc) : 'No scan yet'}</small>
+                    </div>
+                    {source.lastError && <p className="source-error">{source.lastError}</p>}
+                  </div>)}
+                </div>}
+            </div>
+            <div>
+              <h3>Newly observed roles</h3>
+              <p className="briefing-subtitle">Deterministic triage · {briefing?.candidateCount ?? 0} candidates, {briefing?.reviewCount ?? 0} for review</p>
+              {!briefing || briefing.jobs.length === 0 ?
+                <p className="briefing-empty">No qualifying recent observations. Configure employers, scan the watchlist, and create a profile.</p> :
+                <div className="briefing-job-list">
+                  {briefing.jobs.slice(0, 12).map(job => <div className="briefing-job" key={job.id}>
+                    <a href={job.jobUrl} target="_blank" rel="noopener noreferrer">{job.title} ↗</a>
+                    <small>{job.boardToken} · {job.location} · {job.triage} · first seen {fmt(job.firstSeenAtUtc)}</small>
+                  </div>)}
+                </div>}
+              {briefing && briefing.jobs.length > 12 && <p className="briefing-subtitle">See more in the collected postings table below.</p>}
+              {briefing && briefing.omittedCount > 0 && <p className="briefing-subtitle">{briefing.omittedCount} additional observations omitted from the briefing cap.</p>}
+            </div>
+          </div>
+        </section>
         <section className="panel">
           <div className="panel-header">
             <div><h2>Collected postings</h2><p>Filtered locally; click a role to view the employer's original posting.</p></div>
@@ -174,7 +251,7 @@ export default function App() {
               {scan.error && <div className="scan-error">{scan.error}</div>}
             </div>)}</div>}
         </section>
-        <footer>CareerForge v0.3 · Private profile · Local description quotes · Unverified is not a gap · Always review the original job posting.</footer>
+        <footer>CareerForge v0.4 · Local employer watchlist · Evidence-grounded reviews · First observed is not a guarantee of availability.</footer>
       </main>
     </div>
   )

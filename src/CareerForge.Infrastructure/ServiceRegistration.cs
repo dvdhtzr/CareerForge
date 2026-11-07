@@ -31,6 +31,9 @@ public static class ServiceRegistration
             AllowAutoRedirect = false,
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
         });
+        services.AddSingleton<EmployerWatchlistStore>();
+        services.AddSingleton<PrivateProfileStore>();
+        services.AddTransient<MorningBriefingService>();
         services.AddTransient<JobScanService>();
         return services;
     }

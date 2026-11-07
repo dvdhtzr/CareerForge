@@ -24,13 +24,25 @@ if (args.Length > 0 && args[0] == "evaluate")
 if (args.Length > 0 && args[0] == "requirements")
     return await RequirementReviewCommand.RunAsync(args[1..], host.Services);
 
+if (args.Length > 0 && args[0] == "sources")
+    return await WatchlistCommands.RunAsync(args[1..]);
+
+if (args.Length > 0 && args[0] == "daily")
+    return await DailyCommands.DailyAsync(host.Services, args[1..]);
+
+if (args.Length > 0 && args[0] == "report")
+    return await DailyCommands.ReportAsync(host.Services, args[1..]);
+
+if (args.Length >= 2 && args[0] == "scan" && args[1] == "watchlist")
+    return await DailyCommands.ScanWatchlistAsync(host.Services, args[2..]);
+
 bool withDescriptions = args.Length > 1 &&
     args[0] == "scan" && args[1] == "--with-descriptions";
 string[] boards = args.Length == 0 ? ["greenhouse"] :
     args[0] == "scan" ? args[(withDescriptions ? 2 : 1)..] : args;
 if (boards.Length == 0 || boards.Any(board => !JobNormalizer.IsValidBoardToken(board)))
 {
-    Console.Error.WriteLine("Usage: scan [--with-descriptions] <greenhouse-board-token> [...]");
+    Console.Error.WriteLine("Usage: scan [--with-descriptions] <board-token> [...] | scan watchlist | daily | report | sources ...");
     return 2;
 }
 
