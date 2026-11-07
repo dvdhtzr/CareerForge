@@ -11,6 +11,8 @@ public sealed class JobPosting
     public string Location { get; set; } = "";
     public string JobUrl { get; set; } = "";
     public DateTime? SourceUpdatedAtUtc { get; set; }
+    /// <summary>Provider's reported latest expiry; not a guarantee of continued availability.</summary>
+    public DateTime? ExpiresAtUtc { get; set; }
     public DateTime FirstSeenAtUtc { get; set; }
     public DateTime LastSeenAtUtc { get; set; }
 }

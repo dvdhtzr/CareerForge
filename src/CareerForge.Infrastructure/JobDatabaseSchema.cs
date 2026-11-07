@@ -18,6 +18,7 @@ public static class JobDatabaseSchema
         var connection = db.Database.GetDbConnection();
         await db.Database.OpenConnectionAsync(cancellationToken);
         bool hasCompany = false;
+        bool hasExpiry = false;
         await using (var command = connection.CreateCommand())
         {
             command.CommandText = "PRAGMA table_info('Jobs')";
@@ -25,15 +26,19 @@ public static class JobDatabaseSchema
             while (await rows.ReadAsync(cancellationToken))
             {
                 if (string.Equals(rows.GetString(1), "Company", StringComparison.OrdinalIgnoreCase))
-                {
                     hasCompany = true;
-                    break;
-                }
+                if (string.Equals(rows.GetString(1), "ExpiresAtUtc", StringComparison.OrdinalIgnoreCase))
+                    hasExpiry = true;
             }
         }
         if (!hasCompany)
             await db.Database.ExecuteSqlRawAsync(
                 "ALTER TABLE \"Jobs\" ADD COLUMN \"Company\" TEXT NOT NULL DEFAULT ''",
+                cancellationToken);
+
+        if (!hasExpiry)
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE \"Jobs\" ADD COLUMN \"ExpiresAtUtc\" INTEGER NULL",
                 cancellationToken);
 
         // CREATE TABLE IF NOT EXISTS handles older SQLite databases where EnsureCreated

@@ -58,7 +58,18 @@ public sealed class MorningBriefingService(
         {
             sb.AppendLine($"- [{job.Triage}] {Safe(job.Title)} at {Safe(job.Company)} — {Safe(job.Location)} ({job.Provider})");
             sb.AppendLine($"  First seen UTC: {job.FirstSeenAtUtc:yyyy-MM-dd HH:mm}; last observed UTC: {job.LastSeenAtUtc:yyyy-MM-dd HH:mm}");
-            sb.AppendLine($"  Source: {job.JobUrl}");
+            if (job.Provider == "himalayas")
+            {
+                sb.AppendLine("  Index: Himalayas (https://himalayas.app)");
+                sb.AppendLine($"  Apply (provider-supplied link): {job.JobUrl}");
+            }
+            else if (job.Provider == "jobicy")
+            {
+                sb.AppendLine("  Index: Jobicy (https://jobicy.com)");
+                sb.AppendLine($"  Source: {job.JobUrl}");
+            }
+            else
+                sb.AppendLine($"  Source: {job.JobUrl}");
             if (job.ReasonCodes.Count != 0) sb.AppendLine($"  Signals: {string.Join(", ", job.ReasonCodes)}");
         }
         if (briefing.Jobs.Count == 0) sb.AppendLine("No newly observed nonexcluded roles in this time window.");

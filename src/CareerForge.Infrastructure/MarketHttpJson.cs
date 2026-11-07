@@ -58,10 +58,12 @@ internal static class MarketHttpJson
 
     public static string HttpsUrl(string? url)
     {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var parsed) ||
-            parsed.Scheme != Uri.UriSchemeHttps || parsed.UserInfo.Length > 0 ||
-            url!.Length > 2048)
+        if (string.IsNullOrWhiteSpace(url) || url.Length > 2048 ||
+            !string.Equals(url, url.Trim(), StringComparison.Ordinal) ||
+            !Uri.TryCreate(url, UriKind.Absolute, out var parsed) ||
+            parsed.Scheme != Uri.UriSchemeHttps || parsed.UserInfo.Length > 0)
             return "";
-        return parsed.AbsoluteUri;
+        // Provider attribution requirements: keep the original applicationLink byte-for-byte.
+        return url;
     }
 }

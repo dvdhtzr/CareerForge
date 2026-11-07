@@ -43,7 +43,8 @@ public static class MorningBriefingBuilder
             .Where(j => (activeTokens.Contains(j.BoardToken) ||
                 (profile?.AllowRemote == true && j.BoardToken == "market" &&
                  (j.Provider == "himalayas" || j.Provider == "jobicy"))) &&
-                j.FirstSeenAtUtc >= cutoff && j.FirstSeenAtUtc <= utcNow)
+                j.FirstSeenAtUtc >= cutoff && j.FirstSeenAtUtc <= utcNow &&
+                (j.ExpiresAtUtc is null || j.ExpiresAtUtc > utcNow))
             .Select(j =>
             {
                 var triage = profile is null ? null : DeterministicTriage.Evaluate(j, profile);

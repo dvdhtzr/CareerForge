@@ -22,7 +22,9 @@ app.MapGet("/api/jobs", async (IDbContextFactory<CareerForgeDbContext> factory,
     string? query, int? limit, CancellationToken cancellationToken) =>
 {
     await using var db = await factory.CreateDbContextAsync(cancellationToken);
-    var jobs = db.Jobs.AsNoTracking();
+    var now = DateTime.UtcNow;
+    var jobs = db.Jobs.AsNoTracking()
+        .Where(job => job.ExpiresAtUtc == null || job.ExpiresAtUtc > now);
     if (!string.IsNullOrWhiteSpace(query))
     {
         var term = query.Trim();

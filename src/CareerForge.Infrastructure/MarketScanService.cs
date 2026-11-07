@@ -86,6 +86,12 @@ public sealed class MarketScanService(
 
             foreach (var item in matches.Values)
             {
+                // Himalayas requires expired positions to be removed rather than shown as open.
+                if (item.ExpiresAtUtc is { } expiry && expiry.UtcDateTime <= now)
+                {
+                    scan.Skipped++;
+                    continue;
+                }
                 var title = MarketHttpJson.NormalizedText(item.Title);
                 var location = MarketHttpJson.NormalizedText(item.Location, 200);
                 var company = MarketHttpJson.NormalizedText(item.Company, 200);
@@ -102,6 +108,7 @@ public sealed class MarketScanService(
                     current.Company = company;
                     current.JobUrl = url;
                     current.SourceUpdatedAtUtc = item.SourceUpdatedAtUtc?.UtcDateTime;
+                    current.ExpiresAtUtc = item.ExpiresAtUtc?.UtcDateTime;
                     current.LastSeenAtUtc = now;
                     scan.Updated++;
                 }
@@ -117,11 +124,21 @@ public sealed class MarketScanService(
                         Location = location,
                         JobUrl = url,
                         SourceUpdatedAtUtc = item.SourceUpdatedAtUtc?.UtcDateTime,
+                        ExpiresAtUtc = item.ExpiresAtUtc?.UtcDateTime,
                         FirstSeenAtUtc = now,
                         LastSeenAtUtc = now
                     });
                     scan.Added++;
                 }
+            }
+            // Prune previously stored expired Himalayas records on each scan. Do not infer
+            // closure merely because a posting was absent from a partial search response.
+            if (feed.Provider == "himalayas")
+            {
+                var expiredRows = db.Jobs.Local.Where(j => j.Provider == "himalayas" &&
+                    j.BoardToken == "market" && j.ExpiresAtUtc is { } expiry &&
+                    expiry <= now).ToArray();
+                db.Jobs.RemoveRange(expiredRows);
             }
             scan.Status = failures.Count == 0 ? "Succeeded" : "PartialFailure";
             scan.Error = failures.Count == 0 ? null :

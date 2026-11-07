@@ -6,7 +6,8 @@ namespace CareerForge.Core;
 /// <summary>Opportunity from a reviewed public job index. No employer token is needed.</summary>
 public sealed record MarketPosting(
     string Provider, string ExternalId, string Company, string Title,
-    string Location, string JobUrl, DateTimeOffset? SourceUpdatedAtUtc);
+    string Location, string JobUrl, DateTimeOffset? SourceUpdatedAtUtc,
+    DateTimeOffset? ExpiresAtUtc = null);
 
 public interface IMarketJobFeed
 {

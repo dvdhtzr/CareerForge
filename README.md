@@ -207,3 +207,9 @@ The scanner is rate-conscious, sequential, and bounded. It records partial failu
 external API returns 429, the run stops querying that provider rather than evading limits.
 Source access and indexing permissions are documented in [market-source-policy](docs/market-source-policy.md).
 No automatic applying, cloud LLM, payment, or scheduler installation is involved.
+
+**Provider source credit and expiration:** Himalayas Apply links are preserved exactly
+as supplied by the API and displayed alongside a link to Himalayas. Expired Himalayas
+jobs are excluded from search results and removed from the local job inventory during
+subsequent market scans. No source feed guarantees that a job remains open; verify the
+original listing before applying.

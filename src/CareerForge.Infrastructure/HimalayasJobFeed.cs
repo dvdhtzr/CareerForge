@@ -48,7 +48,7 @@ public sealed class HimalayasJobFeed(HttpClient httpClient) : IMarketJobFeed
                 }
 
                 found[id] = new MarketPosting(Provider, id, company, title, location, link,
-                    MarketHttpJson.Date(item, "pubDate"));
+                    MarketHttpJson.Date(item, "pubDate"), MarketHttpJson.Date(item, "expiryDate"));
             }
             if (jobs.GetArrayLength() < 20) break;
         }

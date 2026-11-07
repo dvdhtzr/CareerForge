@@ -22,6 +22,7 @@ public sealed class CareerForgeDbContext(DbContextOptions<CareerForgeDbContext> 
         jobs.HasIndex(x => x.LastSeenAtUtc);
         jobs.Property(x => x.FirstSeenAtUtc).HasConversion(utc);
         jobs.Property(x => x.LastSeenAtUtc).HasConversion(utc);
+        jobs.Property(x => x.ExpiresAtUtc).HasConversion(utc);
         jobs.Property(x => x.Provider).HasMaxLength(40).IsRequired();
         jobs.Property(x => x.BoardToken).HasMaxLength(80).IsRequired();
         jobs.Property(x => x.Company).HasMaxLength(200).IsRequired();

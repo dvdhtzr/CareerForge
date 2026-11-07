@@ -15,8 +15,11 @@ Published API terms may change and must be re-reviewed before increasing use.
 - API results are cached daily. Do not poll more than daily.
 - Must use the API's `applicationLink` unchanged for application links, and visibly attribute
   Himalayas. Do not syndicate the data to other aggregators, job boards, Google Jobs or LinkedIn.
-- Only ID, company, title, eligible-remote location, source URL and source timestamp are
-  retained in the local SQLite database. No job-description/HTML ingestion.
+- Only ID, company, title, eligible-remote location, application URL, source timestamps
+  and expiry time are retained in local SQLite. No job-description/HTML ingestion.
+- Keep the exact returned applicationLink. Display clickable Himalayas attribution.
+- Skip already expired listings; purge previously stored Himalayas jobs once expiry is reached.
+  A job may still close earlier, so the application remains responsible for checking availability.
 
 ### Jobicy
 

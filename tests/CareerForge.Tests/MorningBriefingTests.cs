@@ -90,6 +90,18 @@ public sealed class MorningBriefingTests
     }
 
     [Fact]
+    public void Expired_positions_are_excluded_from_the_briefing()
+    {
+        var list = new EmployerWatchlist();
+        var market = Job("market", "Senior .NET Engineer", "Remote", 0);
+        market.Provider = "himalayas";
+        market.ExpiresAtUtc = Today.AddHours(-1);
+        var briefing = MorningBriefingBuilder.Build([market], [], list, Profile(), Today);
+        Assert.Equal(0, briefing.RecentCount);
+        Assert.Empty(briefing.Jobs);
+    }
+
+    [Fact]
     public void Display_cap_is_reported_not_silently_lost()
     {
         var watchlist = EmployerWatchlistEditor.Add(new EmployerWatchlist(), "acme", "Acme");

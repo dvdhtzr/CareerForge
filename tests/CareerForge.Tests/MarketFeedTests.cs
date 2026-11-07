@@ -33,9 +33,9 @@ public sealed class MarketFeedTests
                   "jobs":[
                     {"guid":"https://himalayas.app/companies/blue/jobs/engineer",
                     "title":"Senior .NET Engineer","companyName":"Blue Systems",
-                    "applicationLink":"https://himalayas.app/apply/abc",
+                    "applicationLink":"https://himalayas.app/apply/abc?campaign=a%2Bb",
                     "locationRestrictions":["United States"],
-                    "pubDate":1794050000}
+                    "pubDate":1794050000,"expiryDate":1894050000}
                   ]
                 }
                 """)
@@ -46,7 +46,8 @@ public sealed class MarketFeedTests
         Assert.Equal("himalayas", job.Provider);
         Assert.Equal("Blue Systems", job.Company);
         Assert.Equal("Remote — United States", job.Location);
-        Assert.Equal("https://himalayas.app/apply/abc", job.JobUrl);
+        Assert.Equal("https://himalayas.app/apply/abc?campaign=a%2Bb", job.JobUrl);
+        Assert.NotNull(job.ExpiresAtUtc);
         Assert.Single(urls);
         Assert.Contains("q=Senior%20.NET%20Engineer", urls[0]);
         Assert.Contains("country=US", urls[0]);

@@ -199,7 +199,11 @@ export default function App() {
                 <div className="briefing-job-list">
                   {briefing.jobs.slice(0, 12).map(job => <div className="briefing-job" key={job.id}>
                     <a href={job.jobUrl} target="_blank" rel="noopener noreferrer">{job.title} ↗</a>
-                    <small>{job.company || 'Employer unspecified'} · {job.provider} · {job.location} · {job.triage} · first seen {fmt(job.firstSeenAtUtc)}</small>
+                    <small>{job.company || 'Employer unspecified'} · {job.provider === 'himalayas' ?
+                      <a href="https://himalayas.app" target="_blank" rel="noopener noreferrer">Himalayas</a> :
+                      job.provider === 'jobicy' ?
+                        <a href="https://jobicy.com" target="_blank" rel="noopener noreferrer">Jobicy</a> :
+                        job.provider} · {job.location} · {job.triage} · first seen {fmt(job.firstSeenAtUtc)}</small>
                   </div>)}
                 </div>}
               {briefing && briefing.jobs.length > 12 && <p className="briefing-subtitle">See more in the collected postings table below.</p>}
@@ -218,7 +222,11 @@ export default function App() {
             <table><thead><tr><th>ROLE</th><th>COMPANY</th><th>SOURCE</th><th>LOCATION</th><th>LAST OBSERVED</th><th>AI TITLE FIT</th><th>REQUIREMENTS</th><th /></tr></thead>
               <tbody>{filtered.map(job => <tr key={job.id}>
                 <td className="job-title">{job.title}</td><td>{job.company || '—'}</td>
-                <td>{job.provider === 'greenhouse' ? job.boardToken : job.provider}</td>
+                <td>{job.provider === 'himalayas' ?
+                  <a href="https://himalayas.app" target="_blank" rel="noopener noreferrer">Himalayas</a> :
+                  job.provider === 'jobicy' ?
+                    <a href="https://jobicy.com" target="_blank" rel="noopener noreferrer">Jobicy</a> :
+                    job.boardToken}</td>
                 <td>{job.location}</td><td>{fmt(job.lastSeenAtUtc)}</td>
                 <td>{evaluationByJob.has(job.id) ? (
                   <details className="fit-details">
@@ -242,7 +250,9 @@ export default function App() {
                     <small>{requirementsByJob.get(job.id)!.model} · exact quotes · source checked</small>
                   </details>
                 ) : <span className="pending-fit">{job.hasDescription ? 'Description collected' : 'No description'}</span>}</td>
-                <td><a href={job.jobUrl} target="_blank" rel="noopener noreferrer">View ↗</a></td>
+                <td><a href={job.jobUrl} target="_blank" rel="noopener noreferrer">
+                  {job.provider === 'himalayas' ? 'Apply ↗' : 'View ↗'}
+                </a></td>
               </tr>)}</tbody></table>
             {!loading && filtered.length === 0 && <div className="empty">No postings in this view. Run a scan or change the filter.</div>}
           </div>

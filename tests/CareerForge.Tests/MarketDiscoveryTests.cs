@@ -102,6 +102,49 @@ public sealed class MarketDiscoveryTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.ScanAsync(profile));
     }
 
+    [Fact]
+    public async Task Expired_himalayas_jobs_are_not_imported_and_stored_expired_jobs_are_pruned()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var options = new DbContextOptionsBuilder<CareerForgeDbContext>().UseSqlite(connection).Options;
+        var factory = new Factory(options);
+        await using (var db = factory.CreateDbContext())
+        {
+            await JobDatabaseSchema.EnsureReadyAsync(db);
+            db.Jobs.Add(new JobPosting
+            {
+                Provider = "himalayas", BoardToken = "market",
+                ExternalId = "previous", Title = "Expired developer",
+                Location = "Remote — US eligible", JobUrl = "https://himalayas.app/apply/old",
+                ExpiresAtUtc = DateTime.UtcNow.AddDays(-1),
+                FirstSeenAtUtc = DateTime.UtcNow.AddDays(-2),
+                LastSeenAtUtc = DateTime.UtcNow.AddDays(-2)
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var scanner = new MarketScanService(factory, [new ExpiredHimalayasFeed()], TimeProvider.System);
+        var result = await scanner.ScanAsync(Profile());
+        Assert.False(result.HasFailures);
+        Assert.Equal(0, result.Added);
+        await using var check = factory.CreateDbContext();
+        Assert.Empty(await check.Jobs.ToListAsync());
+    }
+
+    private sealed class ExpiredHimalayasFeed : IMarketJobFeed
+    {
+        public string Provider => "himalayas";
+        public Task<IReadOnlyList<MarketPosting>> SearchAsync(
+            string term, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MarketPosting>>(
+            [
+                new("himalayas", "newexpired", "Example", "Engineer",
+                    "Remote — US", "https://himalayas.app/apply/new",
+                    DateTimeOffset.UtcNow.AddDays(-3), DateTimeOffset.UtcNow.AddDays(-1))
+            ]);
+    }
+
     private sealed class StubFeed(string provider, bool fail) : IMarketJobFeed
     {
         public string Provider => provider;
