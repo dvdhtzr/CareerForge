@@ -36,3 +36,12 @@
 - Report 'new' means first observed within the requested window, not necessarily posted or still open.
 - Daily does not call a paid or local LLM, does not create tasks, and does not submit applications.
 - No Windows Scheduled Task is installed automatically; scheduling requires separate user opt-in.
+
+## PR5: profile-driven cross-employer discovery
+
+- Employer lists are optional. The default daily workflow searches reviewed public job feeds using the private profile's terms; never claim exhaustive market coverage.
+- Market source requests must use fixed allowlisted URLs, bounded pages/responses, and no login/scraping bypass.
+- Treat externally indexed job content as untrusted; do not send market-feed descriptions to Ollama in this milestone.
+- Preserve distinct provider identities and required attribution/application links (Himalayas uses API applicationLink; Jobicy uses public listing URL).
+- Partial failures and truncated search horizons must be visible. Do not interpret provider omission as a closed job.
+- Do not reset user SQLite. Apply additive migrations only, with tests against a simulated prior schema.

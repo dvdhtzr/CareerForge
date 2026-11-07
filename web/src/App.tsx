@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react'
 type Job = {
   id: string
   boardToken: string
+  provider: string
+  company: string
   title: string
   location: string
   jobUrl: string
@@ -32,6 +34,7 @@ type RequirementReview = {
 
 type BriefingSource = {
   boardToken: string
+  provider: string
   displayName: string
   enabled: boolean
   includeDescriptions: boolean
@@ -44,6 +47,8 @@ type BriefingSource = {
 type BriefingJob = {
   id: string
   boardToken: string
+  provider: string
+  company: string
   title: string
   location: string
   jobUrl: string
@@ -122,7 +127,7 @@ export default function App() {
 
   useEffect(() => { void reload() }, [])
   const filtered = useMemo(() => jobs.filter(j =>
-    (j.title + ' ' + j.location + ' ' + j.boardToken).toLowerCase().includes(query.toLowerCase()),
+    (j.title + ' ' + j.company + ' ' + j.provider + ' ' + j.location + ' ' + j.boardToken).toLowerCase().includes(query.toLowerCase()),
   ), [jobs, query])
   const lastScan = scans[0]
   const evaluationByJob = useMemo(() => new Map(evaluations.map(e => [e.jobId, e])), [evaluations])
@@ -155,7 +160,7 @@ export default function App() {
         {error && <div className="error" role="alert">{error}</div>}
         <div className="stats">
           <div className="metric"><span>KNOWN POSTINGS</span><strong>{jobs.length}</strong><small>Up to 500 shown</small></div>
-          <div className="metric"><span>WATCHED EMPLOYERS</span><strong>{briefing?.sources.filter(s => s.enabled).length ?? '—'}</strong><small>Locally configured boards</small></div>
+          <div className="metric"><span>DISCOVERY SOURCES</span><strong>{briefing?.sources.filter(s => s.enabled).length ?? '—'}</strong><small>Market feeds + optional employers</small></div>
           <div className="metric"><span>LATEST SCAN</span><strong className="status-text">{lastScan?.status ?? 'Not run'}</strong><small>{lastScan ? fmt(lastScan.startedAtUtc) : 'Run the worker first'}</small></div>
           <div className="metric"><span>FIRST OBSERVED (7D)</span><strong>{briefing?.recentCount ?? '—'}</strong><small>{briefing ? briefing.candidateCount + ' candidates · ' + briefing.reviewCount + ' review' : 'Waiting for report'}</small></div>
         </div>
@@ -171,12 +176,12 @@ export default function App() {
           </div>
           <div className="briefing-columns">
             <div>
-              <h3>Employer watchlist</h3>
+              <h3>Discovery sources</h3>
               {!briefing || briefing.sources.length === 0 ?
-                <p className="briefing-empty">No employers configured. Use the local CLI: sources add &lt;board-token&gt;.</p> :
+                <p className="briefing-empty">No feeds available. Set up your local career profile to activate broad-market discovery.</p> :
                 <div className="briefing-source-list">
-                  {briefing.sources.map(source => <div className="briefing-source" key={source.boardToken}>
-                    <div><b>{source.displayName}</b><small>{source.boardToken}{source.includeDescriptions ? ' · descriptions opted in' : ' · metadata only'}</small></div>
+                  {briefing.sources.map(source => <div className="briefing-source" key={source.provider + ':' + source.boardToken}>
+                    <div><b>{source.displayName}</b><small>{source.provider === 'greenhouse' ? source.boardToken : 'Public cross-employer index'}{source.includeDescriptions ? ' · descriptions opted in' : ' · metadata only'}</small></div>
                     <div>
                       <span className={source.lastStatus === 'Succeeded' ? 'pill good' :
                         source.lastStatus === 'Failed' ? 'pill bad' : 'pill'}>{source.lastStatus}</span>
@@ -190,11 +195,15 @@ export default function App() {
               <h3>Newly observed roles</h3>
               <p className="briefing-subtitle">Deterministic triage · {briefing?.candidateCount ?? 0} candidates, {briefing?.reviewCount ?? 0} for review</p>
               {!briefing || briefing.jobs.length === 0 ?
-                <p className="briefing-empty">No qualifying recent observations. Configure employers, scan the watchlist, and create a profile.</p> :
+                <p className="briefing-empty">No recent qualifying observations. Create a profile and run daily to search across employers.</p> :
                 <div className="briefing-job-list">
                   {briefing.jobs.slice(0, 12).map(job => <div className="briefing-job" key={job.id}>
                     <a href={job.jobUrl} target="_blank" rel="noopener noreferrer">{job.title} ↗</a>
-                    <small>{job.boardToken} · {job.location} · {job.triage} · first seen {fmt(job.firstSeenAtUtc)}</small>
+                    <small>{job.company || 'Employer unspecified'} · {job.provider === 'himalayas' ?
+                      <a href="https://himalayas.app" target="_blank" rel="noopener noreferrer">Himalayas</a> :
+                      job.provider === 'jobicy' ?
+                        <a href="https://jobicy.com" target="_blank" rel="noopener noreferrer">Jobicy</a> :
+                        job.provider} · {job.location} · {job.triage} · first seen {fmt(job.firstSeenAtUtc)}</small>
                   </div>)}
                 </div>}
               {briefing && briefing.jobs.length > 12 && <p className="briefing-subtitle">See more in the collected postings table below.</p>}
@@ -210,9 +219,14 @@ export default function App() {
               onChange={e => setQuery(e.target.value)} />
           </div>
           <div className="table-scroller">
-            <table><thead><tr><th>ROLE</th><th>BOARD</th><th>LOCATION</th><th>LAST OBSERVED</th><th>AI TITLE FIT</th><th>REQUIREMENTS</th><th /></tr></thead>
+            <table><thead><tr><th>ROLE</th><th>COMPANY</th><th>SOURCE</th><th>LOCATION</th><th>LAST OBSERVED</th><th>AI TITLE FIT</th><th>REQUIREMENTS</th><th /></tr></thead>
               <tbody>{filtered.map(job => <tr key={job.id}>
-                <td className="job-title">{job.title}</td><td>{job.boardToken}</td>
+                <td className="job-title">{job.title}</td><td>{job.company || '—'}</td>
+                <td>{job.provider === 'himalayas' ?
+                  <a href="https://himalayas.app" target="_blank" rel="noopener noreferrer">Himalayas</a> :
+                  job.provider === 'jobicy' ?
+                    <a href="https://jobicy.com" target="_blank" rel="noopener noreferrer">Jobicy</a> :
+                    job.boardToken}</td>
                 <td>{job.location}</td><td>{fmt(job.lastSeenAtUtc)}</td>
                 <td>{evaluationByJob.has(job.id) ? (
                   <details className="fit-details">
@@ -236,7 +250,9 @@ export default function App() {
                     <small>{requirementsByJob.get(job.id)!.model} · exact quotes · source checked</small>
                   </details>
                 ) : <span className="pending-fit">{job.hasDescription ? 'Description collected' : 'No description'}</span>}</td>
-                <td><a href={job.jobUrl} target="_blank" rel="noopener noreferrer">View ↗</a></td>
+                <td><a href={job.jobUrl} target="_blank" rel="noopener noreferrer">
+                  {job.provider === 'himalayas' ? 'Apply ↗' : 'View ↗'}
+                </a></td>
               </tr>)}</tbody></table>
             {!loading && filtered.length === 0 && <div className="empty">No postings in this view. Run a scan or change the filter.</div>}
           </div>
@@ -251,7 +267,7 @@ export default function App() {
               {scan.error && <div className="scan-error">{scan.error}</div>}
             </div>)}</div>}
         </section>
-        <footer>CareerForge v0.4 · Local employer watchlist · Evidence-grounded reviews · First observed is not a guarantee of availability.</footer>
+        <footer>CareerForge v0.5 · Broad-index search using profile keywords · Indexes do not cover every company · Always verify the source listing.</footer>
       </main>
     </div>
   )

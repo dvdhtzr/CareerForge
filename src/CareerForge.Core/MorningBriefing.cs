@@ -4,11 +4,13 @@ namespace CareerForge.Core;
 public sealed record BriefingJob(
     Guid Id, string BoardToken, string Title, string Location, string JobUrl,
     DateTime FirstSeenAtUtc, DateTime LastSeenAtUtc,
-    string Triage, IReadOnlyList<string> ReasonCodes);
+    string Triage, IReadOnlyList<string> ReasonCodes, string Provider = "greenhouse",
+    string Company = "");
 
 public sealed record BriefingSource(
     string BoardToken, string DisplayName, bool Enabled, bool IncludeDescriptions,
-    string LastStatus, DateTime? LastAttemptUtc, int? LastAdded, string? LastError);
+    string LastStatus, DateTime? LastAttemptUtc, int? LastAdded, string? LastError,
+    string Provider = "greenhouse");
 
 public sealed record MorningBriefing(
     DateTime GeneratedAtUtc, int WindowDays, bool ProfileConfigured,
@@ -35,16 +37,21 @@ public static class MorningBriefingBuilder
             .Select(s => s.BoardToken).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var cutoff = utcNow.AddDays(-days);
 
-        // Only boards the user currently watches; old/disabled sources are not silently included.
+        // Explicit Greenhouse boards are optional. Marketplace feeds are always active
+        // for profiles that allow remote roles; they need no company-list configuration.
         var recent = jobs
-            .Where(j => activeTokens.Contains(j.BoardToken) &&
-                j.FirstSeenAtUtc >= cutoff && j.FirstSeenAtUtc <= utcNow)
+            .Where(j => (activeTokens.Contains(j.BoardToken) ||
+                (profile?.AllowRemote == true && j.BoardToken == "market" &&
+                 (j.Provider == "himalayas" || j.Provider == "jobicy"))) &&
+                j.FirstSeenAtUtc >= cutoff && j.FirstSeenAtUtc <= utcNow &&
+                (j.ExpiresAtUtc is null || j.ExpiresAtUtc > utcNow))
             .Select(j =>
             {
                 var triage = profile is null ? null : DeterministicTriage.Evaluate(j, profile);
                 return new BriefingJob(j.Id, j.BoardToken, j.Title, j.Location, j.JobUrl,
                     j.FirstSeenAtUtc, j.LastSeenAtUtc,
-                    triage?.Verdict.ToString() ?? "Unclassified", triage?.ReasonCodes ?? []);
+                    triage?.Verdict.ToString() ?? "Unclassified", triage?.ReasonCodes ?? [],
+                    j.Provider, j.Company);
             })
             .ToList();
 
@@ -70,6 +77,18 @@ public static class MorningBriefingBuilder
                     latest?.StartedAtUtc, latest?.Added, latest?.Error);
             }).ToArray();
 
+        var marketSources = new[] { ("himalayas", "Himalayas (remote)"), ("jobicy", "Jobicy (remote)") }
+            .Select(market =>
+            {
+                var latest = scans.Where(scan => scan.Provider == market.Item1 &&
+                        scan.BoardToken == "market")
+                    .OrderByDescending(scan => scan.StartedAtUtc).FirstOrDefault();
+                return new BriefingSource("market", market.Item2, profile?.AllowRemote == true,
+                    false, profile?.AllowRemote == false ? "Disabled" :
+                        latest?.Status ?? "NeverScanned",
+                    latest?.StartedAtUtc, latest?.Added, latest?.Error, market.Item1);
+            }).ToArray();
+
         return new MorningBriefing(
             utcNow, days, profile is not null,
             recent.Count,
@@ -78,6 +97,6 @@ public static class MorningBriefingBuilder
             recent.Count(j => j.Triage == nameof(TriageVerdict.Excluded)),
             recent.Count(j => j.Triage == "Unclassified"),
             Math.Max(0, sorted.Count - maxShown),
-            sorted.Take(maxShown).ToArray(), sourceHealth);
+            sorted.Take(maxShown).ToArray(), sourceHealth.Concat(marketSources).ToArray());
     }
 }

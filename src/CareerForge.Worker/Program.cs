@@ -36,13 +36,16 @@ if (args.Length > 0 && args[0] == "report")
 if (args.Length >= 2 && args[0] == "scan" && args[1] == "watchlist")
     return await DailyCommands.ScanWatchlistAsync(host.Services, args[2..]);
 
+if (args.Length >= 2 && args[0] == "scan" && args[1] == "market")
+    return await MarketCommands.ScanAsync(host.Services, args[2..]);
+
 bool withDescriptions = args.Length > 1 &&
     args[0] == "scan" && args[1] == "--with-descriptions";
 string[] boards = args.Length == 0 ? ["greenhouse"] :
     args[0] == "scan" ? args[(withDescriptions ? 2 : 1)..] : args;
 if (boards.Length == 0 || boards.Any(board => !JobNormalizer.IsValidBoardToken(board)))
 {
-    Console.Error.WriteLine("Usage: scan [--with-descriptions] <board-token> [...] | scan watchlist | daily | report | sources ...");
+    Console.Error.WriteLine("Usage: scan market | scan watchlist | scan [--with-descriptions] <board-token> [...] | daily | report | sources ...");
     return 2;
 }
 

@@ -13,6 +13,34 @@ public static class JobDatabaseSchema
         await db.Database.EnsureCreatedAsync(cancellationToken);
         if (!db.Database.IsSqlite()) return;
 
+        // PR1-PR4 created Jobs without Company. Add the column without recreating tables
+        // and without dropping previously collected local data.
+        var connection = db.Database.GetDbConnection();
+        await db.Database.OpenConnectionAsync(cancellationToken);
+        bool hasCompany = false;
+        bool hasExpiry = false;
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "PRAGMA table_info('Jobs')";
+            await using var rows = await command.ExecuteReaderAsync(cancellationToken);
+            while (await rows.ReadAsync(cancellationToken))
+            {
+                if (string.Equals(rows.GetString(1), "Company", StringComparison.OrdinalIgnoreCase))
+                    hasCompany = true;
+                if (string.Equals(rows.GetString(1), "ExpiresAtUtc", StringComparison.OrdinalIgnoreCase))
+                    hasExpiry = true;
+            }
+        }
+        if (!hasCompany)
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE \"Jobs\" ADD COLUMN \"Company\" TEXT NOT NULL DEFAULT ''",
+                cancellationToken);
+
+        if (!hasExpiry)
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE \"Jobs\" ADD COLUMN \"ExpiresAtUtc\" INTEGER NULL",
+                cancellationToken);
+
         // CREATE TABLE IF NOT EXISTS handles older SQLite databases where EnsureCreated
         // does not create newly introduced EF entity tables.
         await db.Database.ExecuteSqlRawAsync(

@@ -33,6 +33,19 @@ public static class ServiceRegistration
         });
         services.AddSingleton<EmployerWatchlistStore>();
         services.AddSingleton<PrivateProfileStore>();
+        services.AddHttpClient<HimalayasJobFeed>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("CareerForge/0.5 (personal job search)");
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+        services.AddHttpClient<JobicyJobFeed>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("CareerForge/0.5 (personal job search)");
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+        services.AddTransient<IMarketJobFeed>(sp => sp.GetRequiredService<HimalayasJobFeed>());
+        services.AddTransient<IMarketJobFeed>(sp => sp.GetRequiredService<JobicyJobFeed>());
+        services.AddTransient<MarketScanService>();
         services.AddTransient<MorningBriefingService>();
         services.AddTransient<JobScanService>();
         return services;
