@@ -10,3 +10,10 @@
 - Keep PRs small and independently useful. Before merge, run scripts/verify.ps1 and review GitHub CI.
 - Add deterministic tests for fixes; do not adjust tests to excuse a defect.
 - Run scanners responsibly; adhere to provider terms, published limits, and error responses.
+
+## PR2: local AI evidence constraints
+
+- Personal career profiles and model evaluations must remain in LocalApplicationData; do not seed the public repository with the user's actual profile or application history.
+- Preliminary Ollama assessments may use posting title and location only. Never report verified job-requirement or skill matching until the requirements have been acquired and grounded.
+- The local model must be contacted through 127.0.0.1:11434. Do not accept arbitrary model service URLs from job data.
+- Give every model result a model name, profile fingerprint, timestamp, and fixed evidence grade. Structured JSON is necessary but not sufficient for factual reliability.

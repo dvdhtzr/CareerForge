@@ -51,4 +51,26 @@ app.MapGet("/api/scans", async (IDbContextFactory<CareerForgeDbContext> factory,
 
 // Read-only API in the first release. Scanning is intentionally a separate local CLI.
 // Do not expose this server publicly: the local database is not an authenticated service.
+app.MapGet("/api/profile/status", () => Results.Ok(new
+{
+    configured = new PrivateProfileStore().Exists
+}));
+
+app.MapGet("/api/evaluations", async Task<IResult> (CancellationToken cancellationToken) =>
+{
+    var profile = await new PrivateProfileStore().LoadAsync(cancellationToken);
+    if (profile is null) return Results.Ok(Array.Empty<object>());
+    var fingerprint = profile.Fingerprint();
+    var results = await new LocalAssessmentStore().ReadAsync(cancellationToken);
+    var current = results.Where(x => x.ProfileFingerprint == fingerprint)
+        .OrderByDescending(x => x.EvaluatedAtUtc).Take(500)
+        .Select(x => new
+        {
+            x.JobId, x.Model, x.Fit, x.Rationale, x.Uncertainty,
+            x.EvidenceLevel, x.EvaluatedAtUtc
+        }).ToArray();
+    return Results.Ok(current);
+});
+
+// Both new endpoints are read-only and intended for loopback use only.
 app.Run();
