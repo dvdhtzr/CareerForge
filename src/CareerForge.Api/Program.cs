@@ -35,7 +35,7 @@ app.MapGet("/api/jobs", async (IDbContextFactory<CareerForgeDbContext> factory,
         .Select(job => new
         {
             job.Id, job.Provider, job.BoardToken, job.ExternalId, job.Title,
-            job.Location, job.JobUrl, job.SourceUpdatedAtUtc,
+            job.Location, job.Company, job.JobUrl, job.SourceUpdatedAtUtc,
             job.FirstSeenAtUtc, job.LastSeenAtUtc,
             HasDescription = db.JobDescriptions.Any(d => d.JobId == job.Id)
         })

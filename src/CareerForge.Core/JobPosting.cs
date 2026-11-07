@@ -5,6 +5,7 @@ public sealed class JobPosting
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Provider { get; set; } = "greenhouse";
     public string BoardToken { get; set; } = "";
+    public string Company { get; set; } = "";
     public string ExternalId { get; set; } = "";
     public string Title { get; set; } = "";
     public string Location { get; set; } = "";

@@ -48,7 +48,7 @@ public sealed class MorningBriefingService(
         {
             var state = source.LastStatus;
             var when = source.LastAttemptUtc is null ? "never" : source.LastAttemptUtc.Value.ToString("yyyy-MM-dd HH:mm 'UTC'");
-            sb.AppendLine($"- {Safe(source.DisplayName)} [{source.BoardToken}]: {state}, last attempt {when}, added {source.LastAdded?.ToString() ?? "-"}");
+            sb.AppendLine($"- {Safe(source.DisplayName)} [{source.Provider}]: {state}, last attempt {when}, added {source.LastAdded?.ToString() ?? "-"}");
             if (source.LastError is not null) sb.AppendLine("  ERROR: " + Safe(source.LastError));
         }
         if (briefing.Sources.Count == 0) sb.AppendLine("No employer sources configured.");
@@ -56,7 +56,7 @@ public sealed class MorningBriefingService(
         sb.AppendLine("NEWLY DISCOVERED ROLES (candidate / review first)");
         foreach (var job in briefing.Jobs)
         {
-            sb.AppendLine($"- [{job.Triage}] {Safe(job.Title)} — {Safe(job.Location)} ({job.BoardToken})");
+            sb.AppendLine($"- [{job.Triage}] {Safe(job.Title)} at {Safe(job.Company)} — {Safe(job.Location)} ({job.Provider})");
             sb.AppendLine($"  First seen UTC: {job.FirstSeenAtUtc:yyyy-MM-dd HH:mm}; last observed UTC: {job.LastSeenAtUtc:yyyy-MM-dd HH:mm}");
             sb.AppendLine($"  Source: {job.JobUrl}");
             if (job.ReasonCodes.Count != 0) sb.AppendLine($"  Signals: {string.Join(", ", job.ReasonCodes)}");

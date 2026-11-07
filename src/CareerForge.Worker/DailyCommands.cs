@@ -35,10 +35,15 @@ internal static class DailyCommands
     {
         var days = ParseDays(args);
         if (days is null) return Usage();
-        // Always generate a report even if individual feeds fail.
-        var scanSucceeded = await ScanInternalAsync(services);
+        // Profile-based market search is the default. No employer watchlist required.
+        var marketResult = await MarketCommands.ScanAsync(services, []);
+        // Optional explicit employer watchlist extends coverage; never blocks market scanning.
+        var watchlist = await services.GetRequiredService<EmployerWatchlistStore>().LoadAsync();
+        var watchlistResult = watchlist.Sources.Any(source => source.Enabled)
+            ? await ScanInternalAsync(services) : true;
+        // Always generate a report, including when one of the feeds fails.
         var reportCode = await ReportAsync(services, args);
-        return scanSucceeded && reportCode == 0 ? 0 : 1;
+        return marketResult == 0 && watchlistResult && reportCode == 0 ? 0 : 1;
     }
 
     private static int? ParseDays(string[] args)

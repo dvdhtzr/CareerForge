@@ -173,3 +173,37 @@ newly posted on the employer's website or currently open. The local dashboard di
 source health and a recent-job briefing for human review.
 
 See [Phase 4 acceptance](docs/pr4-acceptance.md). No Windows scheduled task is installed yet.
+
+## Phase 5 — broad market discovery (no employer list required)
+
+**You do not need to add employers manually.** CareerForge now searches public job indexes
+using the titles and skills already stored in your local profile. Run:
+
+~~~powershell
+dotnet run --project .\src\CareerForge.Worker -- profile init
+dotnet run --project .\src\CareerForge.Worker -- daily --days 7
+~~~
+
+Or run only the new market scanner:
+
+~~~powershell
+dotnet run --project .\src\CareerForge.Worker -- scan market
+~~~
+
+The market scanner currently searches **Himalayas and Jobicy**, two public sources that
+index remote job postings across employers. It uses up to four distinct search terms
+from `TargetTitles` and `SkillKeywords`, with a conservative two-page cap per term,
+and requests US-eligible jobs. It does not require employer URLs or board tokens.
+The existing Greenhouse watchlist is optional and runs in addition to market feeds only
+when configured; it is not required for `daily`.
+
+**Coverage is not exhaustive.** Current feeds primarily cover remote roles; this is not a
+crawl of every U.S. company and will not discover all local, hybrid, or on-site NYC-area jobs.
+The dashboard shows provider attribution. Himalayas results must retain their API-provided
+`applicationLink` and visible Himalayas credit. Jobicy results link to the Jobicy listing.
+Neither provider's descriptions are ingested for LLM processing by the market scanner.
+
+The scanner is rate-conscious, sequential, and bounded. It records partial failures; if an
+external API returns 429, the run stops querying that provider rather than evading limits.
+Source access and indexing permissions are documented in [market-source-policy](docs/market-source-policy.md).
+No automatic applying, cloud LLM, payment, or scheduler installation is involved.
