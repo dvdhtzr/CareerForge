@@ -131,3 +131,45 @@ necessarily proven by a resume. Missing skills are marked unverified, not gaps. 
 certify your qualifications. No automatic applications or external inference are involved.
 
 See [PR3 acceptance and limitations](docs/pr3-acceptance.md).
+
+## Phase 4 — employer watchlist and morning briefing
+
+Add employers by their **Greenhouse board tokens** (not arbitrary URLs). The names and
+configuration stay in your local application data folder, not GitHub:
+
+~~~powershell
+dotnet run --project .\src\CareerForge.Worker -- sources add example-board "Example Employer"
+dotnet run --project .\src\CareerForge.Worker -- sources list
+dotnet run --project .\src\CareerForge.Worker -- sources disable example-board
+~~~
+
+The token above is illustrative; verify a real employer's current Greenhouse board token
+before adding it. Boards begin enabled; new boards default to **metadata only**. You can
+separately opt into fetching full descriptions after reviewing employer usage terms:
+
+~~~powershell
+dotnet run --project .\src\CareerForge.Worker -- sources descriptions example-board on
+~~~
+
+Run every enabled board sequentially and see any failed boards (partial failures return
+nonzero exit status) without installing files or scripts:
+
+~~~powershell
+dotnet run --project .\src\CareerForge.Worker -- scan watchlist
+dotnet run --project .\src\CareerForge.Worker -- report --days 7
+~~~
+
+Or use the one-command morning workflow:
+
+~~~powershell
+dotnet run --project .\src\CareerForge.Worker -- daily --days 7
+~~~
+
+The daily command scans configured boards and produces a deterministic briefing even if
+some sources fail. It saves the report to `%LOCALAPPDATA%\CareerForge\morning-briefing.txt`
+and prints the contents. It neither invokes Ollama nor submits applications. The report's
+'new' means **first observed by CareerForge** within the requested window, not necessarily
+newly posted on the employer's website or currently open. The local dashboard displays
+source health and a recent-job briefing for human review.
+
+See [Phase 4 acceptance](docs/pr4-acceptance.md). No Windows scheduled task is installed yet.

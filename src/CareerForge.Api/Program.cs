@@ -14,7 +14,7 @@ app.UseCors("local-web");
 await using (var db = await app.Services.GetRequiredService<IDbContextFactory<CareerForgeDbContext>>()
     .CreateDbContextAsync())
 {
-    await db.Database.EnsureCreatedAsync();
+    await JobDatabaseSchema.EnsureReadyAsync(db);
 }
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", service = "CareerForge" }));
@@ -98,6 +98,19 @@ app.MapGet("/api/requirement-reviews", async Task<IResult> (
             ListedSkillCount = r.Claims.Count(c => c.ProfileSkill is not null)
         }).ToArray();
     return Results.Ok(current);
+});
+
+app.MapGet("/api/sources", async Task<IResult> (EmployerWatchlistStore store, CancellationToken ct) =>
+{
+    var watchlist = await store.LoadAsync(ct);
+    return Results.Ok(watchlist.Sources);
+});
+
+app.MapGet("/api/briefing", async Task<IResult> (
+    MorningBriefingService service, int? days, CancellationToken ct) =>
+{
+    if (days is < 1 or > 30) return Results.BadRequest("days must be between 1 and 30.");
+    return Results.Ok(await service.BuildAsync(days ?? 7, ct));
 });
 
 // All endpoints are read-only and intended for loopback use only.
